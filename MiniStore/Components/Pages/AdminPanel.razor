@@ -1,0 +1,203 @@
+﻿@page "/adminPanel"
+@using MiniStore.Data;
+@using MiniStore.Models;
+@inject MiniStoreDbContext Db
+
+<div class="container-fluid">
+    <h3>Admin Panel</h3>
+    <hr />
+
+    @if (isEditing)
+    {
+        <h5 class="text-warning">Edit Product: @editingProduct.Name</h5>
+    }
+    else
+    {
+        <h5>Add New Product</h5>
+    }
+
+    @* Εμφάνιση μηνυμάτων λάθους *@
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger py-2 shadow-sm">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @errorMessage
+        </div>
+    }
+
+    @* Φόρμα Εισαγωγής / Επεξεργασίας *@
+    <div class="row g-2 mb-3 bg-dark p-3 rounded shadow-sm">
+        <div class="col-md-3">
+            <label class="small text-muted">Name</label>
+            <input placeholder="Name" @bind="activeProduct.Name" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="small text-muted">Price (€)</label>
+            <input placeholder="Price" type="number" step="0.01" @bind="activeProduct.Price" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="small text-muted">Stock</label>
+            <input placeholder="Stock" type="number" @bind="activeProduct.Stock" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="small text-muted">Category</label>
+            <input placeholder="Category" @bind="activeProduct.Category" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="small text-muted">Description</label>
+            <input placeholder="Description" type="text" @bind="activeProduct.Description" class="form-control" />
+        </div>
+    </div>
+
+    <div class="mb-4">
+        @if (isEditing)
+        {
+            <button class="btn btn-success me-2" @onclick="UpdateProduct">Update Product</button>
+            <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" @onclick="AddProduct">Add Product</button>
+        }
+    </div>
+
+    <hr />
+
+    <h5>Λίστα Προϊόντων</h5>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Όνομα</th>
+                    <th>Κατηγορία</th>
+                    <th>Τιμή</th>
+                    <th>Απόθεμα</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in products)
+                {
+                    <tr>
+                        <td>@p.Name</td>
+                        <td><span class="badge bg-info text-dark">@p.Category</span></td>
+                        <td>€@p.Price</td>
+
+                        @* Εδώ γίνεται ο έλεγχος για το κόκκινο χρώμα στο μηδενικό στοκ *@
+                        <td class="@(p.Stock == 0 ? "text-danger fw-bold" : "")">
+                            @p.Stock @(p.Stock == 0 ? "(Out of Stock)" : "")
+                        </td>
+
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" @onclick="() => EditProduct(p)">Edit</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteProduct(p.Id)">X</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    List<Product> products = new();
+    Product activeProduct = new();
+    bool isEditing = false;
+    Product? editingProduct;
+    private string errorMessage = "";
+
+    protected override void OnInitialized() => RefreshProducts();
+
+    void RefreshProducts() => products = Db.Products.OrderBy(p => p.Name).ToList();
+
+    // Κεντρική μέθοδος ελέγχου (Validation)
+    bool ValidateProduct()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(activeProduct.Name))
+        {
+            errorMessage = "Please enter a product name!";
+            return false;
+        }
+
+        if (activeProduct.Price <= 0)
+        {
+            errorMessage = "Price must be a positive number greater than zero!";
+            return false;
+        }
+
+        if (activeProduct.Stock < 0)
+        {
+            errorMessage = "Stock cannot be a negative number!";
+            return false;
+        }
+
+        return true;
+    }
+
+    void AddProduct()
+    {
+        if (!ValidateProduct()) return;
+
+        Db.Products.Add(activeProduct);
+        Db.SaveChanges();
+        ResetForm();
+        RefreshProducts();
+    }
+
+    void EditProduct(Product p)
+    {
+        editingProduct = p;
+        activeProduct = new Product
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Price = p.Price,
+            Stock = p.Stock,
+            Description = p.Description,
+            Category = p.Category
+        };
+        isEditing = true;
+        errorMessage = ""; // Καθαρισμός σφαλμάτων κατά την έναρξη επεξεργασίας
+    }
+
+    void UpdateProduct()
+    {
+        if (!ValidateProduct()) return;
+
+        var dbProduct = Db.Products.Find(activeProduct.Id);
+        if (dbProduct != null)
+        {
+            dbProduct.Name = activeProduct.Name;
+            dbProduct.Price = activeProduct.Price;
+            dbProduct.Stock = activeProduct.Stock;
+            dbProduct.Description = activeProduct.Description;
+            dbProduct.Category = activeProduct.Category;
+
+            Db.SaveChanges();
+        }
+        ResetForm();
+        RefreshProducts();
+    }
+
+    void CancelEdit() => ResetForm();
+
+    void ResetForm()
+    {
+        activeProduct = new Product();
+        isEditing = false;
+        editingProduct = null;
+        errorMessage = "";
+    }
+
+    void DeleteProduct(int id)
+    {
+        var p = Db.Products.Find(id);
+        if (p != null)
+        {
+            Db.Products.Remove(p);
+            Db.SaveChanges();
+            RefreshProducts();
+        }
+    }
+}

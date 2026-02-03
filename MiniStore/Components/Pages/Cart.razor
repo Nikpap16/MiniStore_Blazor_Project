@@ -1,0 +1,117 @@
+﻿@page "/cart"
+@using MiniStore.Models
+@inject MiniStore.Services.CartService CartService
+@inject NavigationManager NavigationManager
+@using MiniStore.Data
+@inject MiniStoreDbContext Db
+
+<h2 class="mb-4">Your Cart</h2>
+
+@if (orderPlaced)
+{
+    //επιτυχημένο checkout
+    <div class="alert alert-success text-center py-5">
+        <h3 class="display-6">Thank you for your order!</h3>
+        <p>Your items will be shipped soon.</p>
+        <button class="btn btn-primary mt-3" @onclick="ReturnHome">Return to Store</button>
+    </div>
+}
+else if (!CartService.Items.Any())
+{
+    // αδειο  Καλάθι 
+    <div class="alert alert-light shadow-sm">
+        <p class="m-0">Your cart is empty.</p>
+        <button class="btn btn-outline-primary btn-sm mt-3" @onclick="ReturnHome">Back to Shopping</button>
+    </div>
+}
+else
+{
+    // λίστα προϊόντων 
+    <div class="table-responsive">
+        <table class="table w-100 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Product</th>
+                    <th class="text-center">Qty</th>
+                    <th>Price</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in CartService.Items)
+                {
+                    <tr>
+                        <td><strong>@item.Product.Name</strong></td>
+                        <td class="text-center">@item.Quantity</td>
+                        <td>@(item.Product.Price* item.Quantity) €</td>
+                        <td class="text-center">
+                            <div class="btn-group">
+                                <button class="btn btn-outline-success btn-sm" @onclick="() => Increase(item.Product)">+</button>
+                                <button class="btn btn-outline-warning btn-sm" @onclick="() => Decrease(item.Product)">-</button>
+                                <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveItem(item.Product)">Remove</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="h5">
+                    <td colspan="2">Total:</td>
+                    <td class="text-primary fw-bold">@CartService.Items.Sum(i => i.Product.Price * i.Quantity) €</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    
+    <div class="mt-4 d-flex justify-content-between border-top pt-3">
+        <div>
+            <button class="btn btn-outline-secondary me-2" @onclick="ClearCart">Clear Cart</button>
+            <button class="btn btn-light" @onclick="ReturnHome">Continue Shopping</button>
+        </div>
+
+        // checkout 
+        <button class="btn btn-success btn-lg px-5 shadow-sm" @onclick="Checkout">
+            Complete Purchase
+        </button>
+    </div>
+}
+
+@code {
+    private bool orderPlaced = false;
+
+    void Increase(Product p) => CartService.Add(p);
+
+    void Decrease(Product p) => CartService.Decrease(p);
+
+    void RemoveItem(Product p) => CartService.RemoveAll(p);
+
+    void ClearCart()
+    {
+        CartService.Clear();
+    }
+
+    void Checkout()
+    {
+        // Ενημέρωση του Stock στη βάση
+        foreach (var item in CartService.Items)
+        {
+            var dbProduct = Db.Products.Find(item.Product.Id);
+            if (dbProduct != null)
+            {
+                dbProduct.Stock -= item.Quantity;
+                if (dbProduct.Stock < 0) dbProduct.Stock = 0; 
+            }
+        }
+
+        Db.SaveChanges(); 
+        orderPlaced = true;
+        CartService.Clear();
+    }
+
+    void ReturnHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}

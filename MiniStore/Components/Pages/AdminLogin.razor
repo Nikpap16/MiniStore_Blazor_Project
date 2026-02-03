@@ -1,0 +1,44 @@
+﻿@page "/admin-login"
+@inject NavigationManager NavigationManager
+
+<EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+    <div class="form-group">
+        <label for="username">Username</label>
+        <InputText id="username" @bind-Value="loginModel.Username" class="form-control w-25" />
+    </div>
+    <div class="form-group">
+        <label for="password">Password</label>
+        <InputText id="password" @bind-Value="loginModel.Password" type="password" class="form-control w-25" />
+    </div>
+    <button type="submit" class="btn btn-primary mt-3 mb-3">Login</button>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-2 w-25">
+            @errorMessage
+        </div>
+    }
+</EditForm>
+
+@code {
+    private User loginModel = new User();
+    private string? errorMessage;
+
+    private void HandleLogin()
+    {
+        if (loginModel.Username == "admin" && loginModel.Password == "1234")
+        {
+            NavigationManager.NavigateTo("/adminPanel");
+        }
+        else
+        {
+            errorMessage = "Invalid username or password. Please try again.";
+        }
+    }
+
+    public class User
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

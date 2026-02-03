@@ -1,0 +1,184 @@
+﻿@page "/"
+@using MiniStore.Data
+@using MiniStore.Models
+@using MiniStore.Services
+@inject MiniStoreDbContext Db
+@inject CartService CartService
+
+<h1 class="mb-4">MiniStore</h1>
+
+@* Search Bar *@
+<div class="mb-3">
+    <input type="text"
+           class="form-control"
+           placeholder="Search product based on name..."
+           @bind="searchTerm"
+           @bind:event="oninput"
+           @onkeyup="FilterProducts" />
+</div>
+
+@* Category Filters *@
+<div class="mb-4">
+    <button class="btn @(selectedCategory == "All" ? "btn-dark" : "btn-outline-dark")"
+            @onclick='() => SelectCategory("All")'>
+        All Categories
+    </button>
+
+    @foreach (var cat in categories)
+    {
+        <button class="btn @(selectedCategory == cat ? "btn-dark" : "btn-outline-dark") ms-2"
+                @onclick='() => SelectCategory(cat)'>
+            @cat
+        </button>
+    }
+</div>
+
+@* Products Grid *@
+<div class="row">
+    @foreach (var p in filteredProducts)
+    {
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center">
+                    <span class="badge bg-light text-secondary mb-2">@p.Category</span>
+
+                    <h5 class="card-title">@p.Name</h5>
+                    <p class="fw-bold text-primary">@p.Price €</p>
+
+                    <div class="d-grid gap-2">
+                        @if (p.Stock > 0)
+                        {
+                            @* Αν υπάρχει απόθεμα, το κουμπί είναι πράσινο και ενεργό *@
+                            <button class="btn btn-success" @onclick="() => AddToCart(p)">
+                                Add to Cart
+                            </button>
+                        }
+                        else
+                        {
+                            @* Αν το στοκ είναι 0, το κουμπί γίνεται γκρι και απενεργοποιείται *@
+                            <button class="btn btn-secondary disabled" style="cursor: not-allowed;">
+                                Out of Stock
+                            </button>
+                        }
+
+                        <button class="btn btn-outline-info btn-sm" @onclick="() => ShowInfo(p)">
+                            View Description
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@* Product Info Popup *@
+@if (showPopup && selectedProduct != null)
+{
+    <div class="popup-overlay" @onclick="ClosePopup">
+        <div class="popup-content" @onclick:stopPropagation="true">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <h4>@selectedProduct.Name</h4>
+                <button type="button" class="btn-close" @onclick="ClosePopup"></button>
+            </div>
+
+            <hr />
+
+            <p class="text-muted small">Product Info:</p>
+            <p style="white-space: pre-line;">@selectedProduct.Description</p>
+
+            <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                <span class="h5 m-0">@selectedProduct.Price €</span>
+                <button class="btn btn-secondary" @onclick="ClosePopup">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .popup-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1050;
+    }
+
+    .popup-content {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+</style>
+
+@code {
+    
+    private List<Product> allProducts = new();
+    private List<Product> filteredProducts = new();
+    private List<string> categories = new();
+
+    private string selectedCategory = "All";
+    private string searchTerm = "";
+    private bool showPopup = false;
+    private Product selectedProduct;
+
+    //  Αρχικοποίηση
+    protected override void OnInitialized()
+    {
+        allProducts = Db.Products.ToList();
+
+        categories = allProducts
+            .Select(x => x.Category)
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .ToList();
+
+        filteredProducts = allProducts;
+    }
+
+    // φιλτράρισμα
+    private void SelectCategory(string category)
+    {
+        selectedCategory = category;
+        FilterProducts();
+    }
+
+    private void FilterProducts()
+    {
+        var query = allProducts.AsEnumerable();
+
+        if (selectedCategory != "All")
+        {
+            query = query.Where(x => x.Category == selectedCategory);
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(x => x.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filteredProducts = query.ToList();
+    }
+
+    //  Λοιπές Λειτουργίες
+    private void ShowInfo(Product p)
+    {
+        selectedProduct = p;
+        showPopup = true;
+    }
+
+    private void ClosePopup()
+    {
+        showPopup = false;
+        selectedProduct = null;
+    }
+
+    private void AddToCart(Product p) => CartService.Add(p);
+}
