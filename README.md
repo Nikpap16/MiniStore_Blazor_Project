@@ -1,5 +1,5 @@
 # MiniStore 🛒
-**A Modern Full-Stack E-shop built with Blazor WASM & .NET**
+**A Modern Full-Stack E-shop built with Blazor WEB & .NET**
 
 ## 🌟 Overview
 Το **MiniStore** είναι μια ολοκληρωμένη εφαρμογή ηλεκτρονικού εμπορίου που αναπτύχθηκε στο πλαίσιο του μαθήματος Αντικειμενοστραφούς Προγραμματισμού (OOP). Η εφαρμογή προσφέρει μια πλήρη εμπειρία αγορών για τον χρήστη και ένα ισχυρό εργαλείο διαχείρισης για τον διαχειριστή.
